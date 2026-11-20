@@ -38,5 +38,11 @@ export const statusRpc = defineRpc({
   output: outputSchema,
 });
 
+export const dropTicketRpc = defineRpc({
+  name: "superagent.tickets.drop",
+  input: z.object({ id: z.number().int().positive(), confirm: z.literal("DROP") }),
+  output: z.object({ id: z.number(), status: z.literal("dropped") }),
+});
+
 export type SuperAgentStatus = z.output<typeof outputSchema>;
 export type SuperAgentTicket = z.output<typeof ticketSchema>;

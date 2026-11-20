@@ -1,11 +1,19 @@
 import type { PluginScreenProps } from "@getpaseo/plugin/client";
 import { useRpc } from "@getpaseo/plugin/client";
-import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
-import { statusRpc, type SuperAgentTicket } from "../shared/status";
+import { dropTicketRpc, statusRpc, type SuperAgentTicket } from "../shared/status";
 
-function TicketCard({ ticket, styles }: { ticket: SuperAgentTicket; styles: ReturnType<typeof createStyles> }) {
+const channelSources = new Set(["agentmail", "imap", "pm", "schedule"]);
+
+function TicketCard({ ticket, styles, confirming, busy, onDrop }: {
+  ticket: SuperAgentTicket;
+  styles: ReturnType<typeof createStyles>;
+  confirming: boolean;
+  busy: boolean;
+  onDrop: () => void;
+}) {
   return (
     <View style={styles.card}>
       <Text style={styles.cardTitle}>#{ticket.id} · {ticket.title}</Text>
@@ -18,6 +26,17 @@ function TicketCard({ ticket, styles }: { ticket: SuperAgentTicket; styles: Retu
         <Text style={styles.text}>Blocker: {ticket.blockers.map((blocker) => blocker.kind).join(", ")}</Text>
       ) : null}
       {ticket.delivery_url ? <Text style={styles.muted}>Ergebnis: {ticket.delivery_url}</Text> : null}
+      {channelSources.has(ticket.source) ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={confirming ? `Ticket ${ticket.id} wirklich verwerfen` : `Ticket ${ticket.id} verwerfen`}
+          style={styles.button}
+          disabled={busy}
+          onPress={onDrop}
+        >
+          <Text style={styles.buttonText}>{busy ? "Verwerfe …" : confirming ? "Wirklich verwerfen?" : "Verwerfen"}</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -44,10 +63,19 @@ const createStyles = (theme: PluginScreenProps["theme"], compact: boolean) => ({
 
 export function StatusScreen({ theme, layout }: PluginScreenProps) {
   const readStatus = useRpc(statusRpc);
+  const dropTicket = useRpc(dropTicketRpc);
+  const [confirmDrop, setConfirmDrop] = useState<number | null>(null);
   const query = useQuery({
     queryKey: ["superagent-status"],
     queryFn: () => readStatus({}),
     refetchInterval: 15_000,
+  });
+  const dropMutation = useMutation({
+    mutationFn: (id: number) => dropTicket({ id, confirm: "DROP" }),
+    onSuccess: () => {
+      setConfirmDrop(null);
+      void query.refetch();
+    },
   });
   const styles = useMemo(() => createStyles(theme, layout.compact), [theme, layout.compact]);
   const data = query.data;
@@ -67,6 +95,7 @@ export function StatusScreen({ theme, layout }: PluginScreenProps) {
 
       {query.isPending ? <Text style={styles.text}>Status wird gelesen …</Text> : null}
       {query.isError ? <Text style={styles.text}>Statusfehler: {query.error.message}</Text> : null}
+      {dropMutation.isError ? <Text style={styles.text}>Aktionsfehler: {dropMutation.error.message}</Text> : null}
 
       {data ? (
         <>
@@ -84,7 +113,20 @@ export function StatusScreen({ theme, layout }: PluginScreenProps) {
           {data.tickets.length === 0 ? (
             <View style={styles.card}><Text style={styles.text}>Keine offenen Tickets.</Text></View>
           ) : data.tickets.map((ticket) => (
-            <TicketCard key={ticket.id} ticket={ticket} styles={styles} />
+            <TicketCard
+              key={ticket.id}
+              ticket={ticket}
+              styles={styles}
+              confirming={confirmDrop === ticket.id}
+              busy={dropMutation.isPending}
+              onDrop={() => {
+                if (confirmDrop === ticket.id) {
+                  dropMutation.mutate(ticket.id);
+                } else {
+                  setConfirmDrop(ticket.id);
+                }
+              }}
+            />
           ))}
           <Text style={styles.muted}>Gelesen: {data.fetchedAt}</Text>
         </>

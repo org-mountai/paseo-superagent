@@ -27,6 +27,21 @@ async function runJson<T>(script: string): Promise<T> {
   return JSON.parse(stdout) as T;
 }
 
+const channelSources = new Set(["agentmail", "imap", "pm", "schedule"]);
+
+export async function dropTicket({ id, confirm }: { id: number; confirm: "DROP" }) {
+  if (confirm !== "DROP") throw new Error("Bestätigung fehlt");
+  const tickets = await runJson<SuperAgentStatus["tickets"]>("dispatcher.py");
+  const ticket = tickets.find((candidate) => candidate.id === id);
+  if (!ticket) throw new Error(`Ticket #${id} ist nicht offen`);
+  if (!channelSources.has(ticket.source)) {
+    throw new Error("Nur R0-Kanal-Tickets dürfen über Paseo verworfen werden");
+  }
+  if (ticket.status !== "open") throw new Error(`Ticket #${id} ist ${ticket.status}`);
+  await run(python, [`${root}/superagent/tickets.py`, "drop", String(id), "--reason", "Über Paseo bestätigt"]);
+  return { id, status: "dropped" as const };
+}
+
 export async function readStatus(): Promise<SuperAgentStatus> {
   const [tickets, bridge, active, enabled] = await Promise.all([
     runJson<SuperAgentStatus["tickets"]>("dispatcher.py"),
