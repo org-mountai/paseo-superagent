@@ -27,7 +27,7 @@ async function runJson<T>(script: string): Promise<T> {
   return JSON.parse(stdout) as T;
 }
 
-const channelSources = new Set(["agentmail", "imap", "pm", "schedule"]);
+const channelSources = new Set(["agentmail", "imap", "pm", "schedule", "webhook"]);
 
 export async function dropTicket({ id, confirm }: { id: number; confirm: "DROP" }) {
   if (confirm !== "DROP") throw new Error("Bestätigung fehlt");

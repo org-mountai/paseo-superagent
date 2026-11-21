@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { dropTicketRpc, statusRpc, type SuperAgentTicket } from "../shared/status";
 
-const channelSources = new Set(["agentmail", "imap", "pm", "schedule"]);
+const channelSources = new Set(["agentmail", "imap", "pm", "schedule", "webhook"]);
 
 function TicketCard({ ticket, styles, confirming, busy, onDrop }: {
   ticket: SuperAgentTicket;
