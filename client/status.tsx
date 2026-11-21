@@ -22,10 +22,14 @@ function TicketCard({ ticket, styles, confirming, busy, onDrop }: {
         <Text style={styles.text}>Worker {ticket.runtime}: {ticket.runtime_state ?? "unbekannt"}</Text>
       ) : null}
       {ticket.runtime_detail ? <Text style={styles.muted}>{ticket.runtime_detail}</Text> : null}
+      {ticket.activity ? <Text style={styles.muted}>Zuletzt: {ticket.activity}</Text> : null}
       {ticket.blockers.length > 0 ? (
         <Text style={styles.text}>Blocker: {ticket.blockers.map((blocker) => blocker.kind).join(", ")}</Text>
       ) : null}
       {ticket.delivery_url ? <Text style={styles.muted}>Ergebnis: {ticket.delivery_url}</Text> : null}
+      {["delivered", "failed", "dropped"].includes(ticket.status) && ticket.note ? (
+        <Text style={styles.muted}>Abschluss: {ticket.note.slice(0, 1500)}</Text>
+      ) : null}
       {channelSources.has(ticket.source) ? (
         <Pressable
           accessibilityRole="button"
@@ -79,11 +83,17 @@ export function StatusScreen({ theme, layout }: PluginScreenProps) {
   });
   const styles = useMemo(() => createStyles(theme, layout.compact), [theme, layout.compact]);
   const data = query.data;
+  const activeTickets = data?.tickets.filter((ticket) =>
+    ["open", "working", "failed"].includes(ticket.status)
+  ) ?? [];
+  const recentTickets = data?.tickets.filter((ticket) =>
+    !["open", "working", "failed"].includes(ticket.status)
+  ) ?? [];
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Super Agent</Text>
-      <Text style={styles.muted}>Read-only · aktualisiert alle 15 Sekunden</Text>
+      <Text style={styles.muted}>Status alle 15 Sekunden · sichere R0-Steuerung</Text>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Super-Agent-Status aktualisieren"
@@ -109,10 +119,10 @@ export function StatusScreen({ theme, layout }: PluginScreenProps) {
             </Text>
           </View>
 
-          <Text style={styles.section}>Offene Tickets und Worker</Text>
-          {data.tickets.length === 0 ? (
-            <View style={styles.card}><Text style={styles.text}>Keine offenen Tickets.</Text></View>
-          ) : data.tickets.map((ticket) => (
+          <Text style={styles.section}>Aktive Tickets und Worker</Text>
+          {activeTickets.length === 0 ? (
+            <View style={styles.card}><Text style={styles.text}>Keine aktiven Tickets.</Text></View>
+          ) : activeTickets.map((ticket) => (
             <TicketCard
               key={ticket.id}
               ticket={ticket}
@@ -128,6 +138,21 @@ export function StatusScreen({ theme, layout }: PluginScreenProps) {
               }}
             />
           ))}
+          {recentTickets.length > 0 ? (
+            <>
+              <Text style={styles.section}>Zuletzt beendet · 24 Stunden</Text>
+              {recentTickets.map((ticket) => (
+                <TicketCard
+                  key={ticket.id}
+                  ticket={ticket}
+                  styles={styles}
+                  confirming={false}
+                  busy={false}
+                  onDrop={() => {}}
+                />
+              ))}
+            </>
+          ) : null}
           <Text style={styles.muted}>Gelesen: {data.fetchedAt}</Text>
         </>
       ) : null}

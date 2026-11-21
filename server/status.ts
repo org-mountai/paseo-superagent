@@ -42,6 +42,20 @@ export async function dropTicket({ id, confirm }: { id: number; confirm: "DROP" 
   return { id, status: "dropped" as const };
 }
 
+async function withActivity(ticket: SuperAgentStatus["tickets"][number]) {
+  if (!ticket.runtime || !["starting", "running", "blocked"].includes(ticket.runtime_state ?? "")) {
+    return { ...ticket, activity: null };
+  }
+  try {
+    const activity = await run(python, [
+      `${root}/superagent/dispatcher.py`, "logs", String(ticket.id), "--tail", "3",
+    ]);
+    return { ...ticket, activity: activity.trim().slice(-2000) || null };
+  } catch {
+    return { ...ticket, activity: null };
+  }
+}
+
 export async function readStatus(): Promise<SuperAgentStatus> {
   const [tickets, bridge, active, enabled] = await Promise.all([
     runJson<SuperAgentStatus["tickets"]>("dispatcher.py"),
@@ -50,7 +64,7 @@ export async function readStatus(): Promise<SuperAgentStatus> {
     run("/usr/bin/systemctl", ["--user", "is-enabled", "companion-superagent-watchdog.timer"], true),
   ]);
   return {
-    tickets,
+    tickets: await Promise.all(tickets.map(withActivity)),
     bridge,
     watchdog: { active: active.trim(), enabled: enabled.trim() },
     fetchedAt: new Date().toISOString(),

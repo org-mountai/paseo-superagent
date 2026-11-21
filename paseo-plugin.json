@@ -1,7 +1,7 @@
 {
   "id": "paseo-superagent",
   "name": "Super Agent",
-  "description": "Read-only status for tickets, workers, watchdog and the First-Mate bridge",
+  "description": "Ticket and worker status, recent results and narrowly scoped worker permissions",
   "media": [],
   "requirements": {
     "paseo": ">=0.16.1"

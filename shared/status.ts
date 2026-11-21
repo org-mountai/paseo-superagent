@@ -10,6 +10,8 @@ const ticketSchema = z.object({
   runtime: z.string().nullable(),
   runtime_state: z.string().nullable(),
   runtime_detail: z.string().nullable(),
+  activity: z.string().nullable().optional(),
+  note: z.string().nullable(),
   state_changed_at: z.string().nullable(),
   updated_at: z.string(),
   url: z.string().nullable(),
